@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en" id="top">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MafiaDeal — Secret Role Dealer & Night Moderator for Mafia Party Games</title>
+<meta name="description" content="MafiaDeal is a free pass-and-play secret role dealer for Mafia and Werewolf party games. Deal roles on one phone, follow guided night-phase moderator prompts, track alive and dead players, and run a discussion timer — no signup needed.">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background:#171019; color:#f5ede4; }
+  .felt {
+    background:
+      radial-gradient(1200px 500px at 50% -10%, rgba(234,179,8,.10), transparent 60%),
+      radial-gradient(900px 600px at 50% 110%, rgba(239,68,68,.12), transparent 60%),
+      radial-gradient(ellipse at center, #241522 0%, #171019 70%);
+  }
+  .card-table {
+    background: linear-gradient(160deg, #2a1626 0%, #1d1019 55%, #221322 100%);
+    border:1px solid rgba(234,179,8,.22);
+    box-shadow: 0 20px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .gold-text { color:#eab308; }
+  .btn-red { background:#ef4444; color:#fff; box-shadow:0 4px 0 #b91c1c; }
+  .btn-red:active { transform:translateY(2px); box-shadow:0 2px 0 #b91c1c; }
+  .btn-gold { background:#eab308; color:#171019; box-shadow:0 4px 0 #a16207; }
+  .btn-gold:active { transform:translateY(2px); box-shadow:0 2px 0 #a16207; }
+  .btn-ghost { border:1px solid rgba(234,179,8,.35); color:#eab308; }
+  .stage-dot { transition: all .25s ease; }
+  .role-hidden-inner { background: repeating-linear-gradient(45deg,#241522,#241522 12px,#1d1019 12px,#1d1019 24px); }
+  .timer-flash { animation: tflash .5s ease-in-out infinite alternate; }
+  @keyframes tflash { from { box-shadow:0 0 0 rgba(239,68,68,0);} to { box-shadow:0 0 40px rgba(239,68,68,.8);} }
+  .faq summary { cursor:pointer; }
+  .faq summary::-webkit-details-marker { display:none; }
+  input[type=number], input[type=text], textarea, select { color-scheme: dark; }
+</style>
+</head>
+<body class="felt min-h-screen">
+
+<header class="sticky top-0 z-50" style="background: rgba(23,16,25,.94); border-bottom:1px solid rgba(234,179,8,.25); backdrop-filter: blur(8px);">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2.5">
+      <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl text-2xl font-black" style="background:#ef4444; color:#fff; box-shadow:0 3px 0 #b91c1c;">&spades;</span>
+      <span class="text-2xl font-black tracking-tight">Mafia<span class="gold-text">Deal</span></span>
+    </a>
+    <nav class="flex items-center gap-2 sm:gap-6">
+      <a href="#top" class="font-semibold text-sm sm:text-base hover:underline" style="color:#eab308;">Home</a>
+      <a href="https://fixoraa.tech" class="btn-ghost font-semibold text-sm sm:text-base px-4 py-1.5 rounded-full">More Tools</a>
+    </nav>
+  </div>
+</header>
+
+<div class="no-print mx-auto max-w-6xl px-4 sm:px-6 pt-4" role="complementary" aria-label="Advertisement">
+  <div class="mx-auto text-center" style="max-width:728px">
+    <span class="block text-[10px] tracking-[0.18em] uppercase text-slate-400 mb-1.5">Advertisement</span>
+    <div class="flex justify-center overflow-hidden">
+      <div class="origin-top scale-[0.44] sm:scale-100 shrink-0">
+        <script>
+          atOptions = { 'key' : '4e68ac77881c17fe128a46565d9a4e8c', 'format' : 'iframe', 'height' : 90, 'width' : 728, 'params' : {} };
+        </script>
+        <script src="https://www.highrevenueformat.com/4e68ac77881c17fe128a46565d9a4e8c/invoke.js"></script>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+
+  <div class="text-center mb-6">
+    <h1 class="text-4xl sm:text-5xl font-black tracking-tight mb-3">Deal Secret Roles.<br><span class="gold-text">Run the Perfect Mafia Night.</span></h1>
+    <p class="text-slate-300 max-w-2xl mx-auto">Pass one phone around the table — every player secretly sees their role. Then follow guided moderator prompts, track who is alive, and time the debates.</p>
+    <div class="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold" style="background:rgba(234,179,8,.12); border:1px solid rgba(234,179,8,.5); color:#eab308;">
+      &#9733; Unlimited Free Usage — no signup, no paywall, no watermark
+    </div>
+  </div>
+
+  <!-- stage stepper -->
+  <div class="card-table rounded-2xl p-4 mb-6">
+    <div class="flex items-center justify-between gap-1 sm:gap-2 text-[11px] sm:text-sm font-bold">
+      <button data-stage="setup" class="stage-dot flex-1 text-center py-2 rounded-lg" id="stage-setup">1. Setup</button>
+      <button data-stage="deal" class="stage-dot flex-1 text-center py-2 rounded-lg" id="stage-deal">2. Deal</button>
+      <button data-stage="night" class="stage-dot flex-1 text-center py-2 rounded-lg" id="stage-night">3. Night</button>
+      <button data-stage="tracker" class="stage-dot flex-1 text-center py-2 rounded-lg" id="stage-tracker">4. Tracker</button>
+      <button data-stage="timer" class="stage-dot flex-1 text-center py-2 rounded-lg" id="stage-timer">&#9201; Timer</button>
+    </div>
+  </div>
+
+  <!-- ============ SETUP ============ -->
+  <section id="md-setup-section" class="card-table rounded-2xl p-5 sm:p-8 mb-6">
+    <h2 class="text-2xl font-black mb-1">Game Setup</h2>
+    <p class="text-slate-400 text-sm mb-5">Choose your table size and role mix. The Mafia count defaults to the classic <span class="gold-text font-bold">floor(players &divide; 3)</span> balance.</p>
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div>
+        <label for="md-player-count" class="block text-sm font-bold mb-2 gold-text">Number of players (5&ndash;30)</label>
+        <input id="md-player-count" type="number" min="5" max="30" value="9"
+          class="w-full rounded-xl px-4 py-3 text-lg font-bold bg-black/40 border border-[rgba(234,179,8,.3)] focus:outline-none focus:border-[#eab308]">
+        <label for="md-player-names" class="block text-sm font-bold mt-4 mb-2 gold-text">Player names <span class="text-slate-500 font-normal">(optional — one per line; defaults to Player 1, 2&hellip;)</span></label>
+        <textarea id="md-player-names" rows="4" placeholder="Aarav&#10;Maya&#10;Leo&#10;..."
+          class="w-full rounded-xl px-4 py-3 bg-black/40 border border-[rgba(234,179,8,.3)] focus:outline-none focus:border-[#eab308]"></textarea>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-bold gold-text">Role counts</span>
+          <button id="md-reset-counts" class="text-xs font-bold underline text-slate-400 hover:text-slate-200">Reset to classic balance</button>
+        </div>
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-bold text-sm"><span style="color:#ef4444;">&spades;</span> Mafia <span class="text-slate-500 font-normal">(default = players &divide; 3)</span></span>
+            <input id="md-mafia-count" type="number" min="1" max="10" value="3" class="w-20 rounded-lg px-2 py-1.5 text-center font-bold bg-black/40 border border-[rgba(239,68,68,.4)]">
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-bold text-sm"><span style="color:#4ade80;">&#10010;</span> Doctor</span>
+            <input id="md-doctor-count" type="number" min="0" max="5" value="1" class="w-20 rounded-lg px-2 py-1.5 text-center font-bold bg-black/40 border border-[rgba(234,179,8,.3)]">
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-bold text-sm"><span style="color:#60a5fa;">&#128065;</span> Detective</span>
+            <input id="md-detective-count" type="number" min="0" max="5" value="1" class="w-20 rounded-lg px-2 py-1.5 text-center font-bold bg-black/40 border border-[rgba(234,179,8,.3)]">
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-bold text-sm"><span style="color:#a78bfa;">&#128737;</span> Bodyguard</span>
+            <input id="md-bodyguard-count" type="number" min="0" max="5" value="0" class="w-20 rounded-lg px-2 py-1.5 text-center font-bold bg-black/40 border border-[rgba(234,179,8,.3)]">
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-bold text-sm"><span style="color:#94a3b8;">&#9823;</span> Villagers <span class="text-slate-500 font-normal">(auto-filled)</span></span>
+            <input id="md-villager-count" type="number" min="0" max="25" value="4" readonly class="w-20 rounded-lg px-2 py-1.5 text-center font-bold bg-black/60 border border-[rgba(148,163,184,.3)] text-slate-300">
+          </div>
+        </div>
+        <p id="md-count-warning" class="text-xs mt-3 font-bold" style="color:#ef4444;"></p>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3 mt-6">
+      <button id="md-start-game" class="btn-red font-black px-8 py-3 rounded-xl text-lg">Start Dealing &rarr;</button>
+      <button id="md-new-game" class="btn-ghost font-bold px-6 py-3 rounded-xl">Reset</button>
+    </div>
+  </section>
+
+  <!-- ============ DEAL (pass and play) ============ -->
+  <section id="md-deal-section" class="card-table rounded-2xl p-5 sm:p-8 mb-6 hidden">
+    <h2 class="text-2xl font-black mb-1">Pass &amp; Play Dealing</h2>
+    <p class="text-slate-400 text-sm mb-5">Hand the phone to <span id="md-deal-name" class="font-black gold-text"></span>. Nobody else look!</p>
+    <p id="md-deal-progress" class="text-xs font-bold text-slate-500 mb-4"></p>
+    <div id="md-deal-area" class="max-w-sm mx-auto"></div>
+    <div class="text-center mt-5 space-y-3">
+      <button id="md-reveal-btn" class="btn-gold font-black px-8 py-3 rounded-xl text-lg w-full sm:w-auto">&#128065; Tap to reveal my role</button>
+      <button id="md-hide-btn" class="btn-red font-black px-8 py-3 rounded-xl text-lg w-full sm:w-auto hidden">I memorized it — next player &rarr;</button>
+    </div>
+  </section>
+
+  <!-- ============ NIGHT ============ -->
+  <section id="md-night-section" class="card-table rounded-2xl p-5 sm:p-8 mb-6 hidden">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="text-2xl font-black">Night Phase</h2>
+      <span class="text-sm font-black px-3 py-1 rounded-full" style="background:rgba(239,68,68,.15); color:#ef4444;">Night <span id="md-night-round">1</span></span>
+    </div>
+    <p class="text-slate-400 text-sm mb-5">Read each prompt aloud as the moderator. Tap <b>Next</b> after the group completes the action.</p>
+
+    <div class="rounded-2xl p-6 mb-5 role-hidden-inner border border-[rgba(234,179,8,.3)]">
+      <p id="md-night-step" class="text-lg font-black gold-text mb-3"></p>
+      <p id="md-night-prompt" class="text-slate-200 leading-relaxed"></p>
+      <p id="md-night-counter" class="text-xs text-slate-500 mt-4 font-bold"></p>
+    </div>
+
+    <div id="md-night-actions" class="hidden">
+      <h3 class="font-black mb-3">Record the night's choices</h3>
+      <div class="grid sm:grid-cols-3 gap-3 mb-4">
+        <div>
+          <label for="md-night-target" class="block text-xs font-bold mb-1" style="color:#ef4444;">Mafia target</label>
+          <select id="md-night-target" class="w-full rounded-lg px-3 py-2 bg-black/40 border border-[rgba(239,68,68,.4)]"></select>
+        </div>
+        <div>
+          <label for="md-night-doctor" class="block text-xs font-bold mb-1" style="color:#4ade80;">Doctor saves</label>
+          <select id="md-night-doctor" class="w-full rounded-lg px-3 py-2 bg-black/40 border border-[rgba(234,179,8,.3)]"></select>
+        </div>
+        <div>
+          <label for="md-night-guard" class="block text-xs font-bold mb-1" style="color:#a78bfa;">Bodyguard guards</label>
+          <select id="md-night-guard" class="w-full rounded-lg px-3 py-2 bg-black/40 border border-[rgba(234,179,8,.3)]"></select>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <button id="md-resolve-night" class="btn-gold font-black px-6 py-2.5 rounded-xl">&#127769; Resolve night</button>
+      </div>
+      <p id="md-night-result" class="mt-4 text-sm font-bold"></p>
+    </div>
+
+    <div class="flex flex-wrap gap-3 mt-5">
+      <button id="md-night-next-btn" class="btn-red font-black px-8 py-3 rounded-xl">Next &rarr;</button>
+      <button id="md-night-back-btn" class="btn-ghost font-bold px-6 py-3 rounded-xl">&larr; Back</button>
+    </div>
+  </section>
+
+  <!-- ============ TRACKER ============ -->
+  <section id="md-tracker-section" class="card-table rounded-2xl p-5 sm:p-8 mb-6 hidden">
+    <h2 class="text-2xl font-black mb-1">Alive / Dead Tracker</h2>
+    <p class="text-slate-400 text-sm mb-5">Tap a player to toggle alive &harr; dead. The win banner updates automatically.</p>
+    <div id="md-win-banner" class="hidden rounded-xl p-4 mb-5 text-center font-black text-lg"></div>
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="rounded-xl p-3 text-center bg-black/40 border border-[rgba(239,68,68,.4)]">
+        <p class="text-xs text-slate-400 font-bold">Mafia alive</p>
+        <p id="md-count-mafia" class="text-3xl font-black" style="color:#ef4444;">0</p>
+      </div>
+      <div class="rounded-xl p-3 text-center bg-black/40 border border-[rgba(234,179,8,.35)]">
+        <p class="text-xs text-slate-400 font-bold">Village alive</p>
+        <p id="md-count-village" class="text-3xl font-black gold-text">0</p>
+      </div>
+      <div class="rounded-xl p-3 text-center bg-black/40 border border-[rgba(148,163,184,.3)]">
+        <p class="text-xs text-slate-400 font-bold">Dead</p>
+        <p id="md-count-dead" class="text-3xl font-black text-slate-400">0</p>
+      </div>
+    </div>
+    <div id="md-tracker-list" class="grid sm:grid-cols-2 gap-2.5"></div>
+    <div class="flex flex-wrap gap-3 mt-6">
+      <button id="md-goto-night" class="btn-red font-black px-6 py-3 rounded-xl">&#127769; Next night</button>
+      <button id="md-new-game-2" class="btn-ghost font-bold px-6 py-3 rounded-xl">New game</button>
+    </div>
+  </section>
+
+  <!-- ============ TIMER ============ -->
+  <section id="md-timer-section" class="card-table rounded-2xl p-5 sm:p-8 mb-6 hidden">
+    <h2 class="text-2xl font-black mb-1">Discussion Timer</h2>
+    <p class="text-slate-400 text-sm mb-5">Set the debate length. A chime sounds when time runs out.</p>
+    <div id="md-timer-display" class="text-center font-black rounded-2xl py-8 mb-5 bg-black/50 border border-[rgba(234,179,8,.35)]" style="font-size:4.5rem; letter-spacing:.05em;">05:00</div>
+    <div class="flex flex-wrap items-end justify-center gap-3">
+      <div>
+        <label for="md-timer-min" class="block text-xs font-bold mb-1 gold-text">Minutes</label>
+        <input id="md-timer-min" type="number" min="1" max="60" value="5" class="w-24 rounded-lg px-3 py-2 text-center font-bold bg-black/40 border border-[rgba(234,179,8,.3)]">
+      </div>
+      <button id="md-timer-start" class="btn-gold font-black px-6 py-2.5 rounded-xl">&#9654; Start</button>
+      <button id="md-timer-stop" class="btn-ghost font-bold px-6 py-2.5 rounded-xl">&#10074;&#10074; Pause</button>
+      <button id="md-timer-reset" class="btn-ghost font-bold px-6 py-2.5 rounded-xl">&#8635; Reset</button>
+    </div>
+  </section>
+
+</main>
+
+<div class="no-print mx-auto max-w-6xl px-4 sm:px-6 pb-4" role="complementary" aria-label="Advertisement">
+  <div class="mx-auto text-center" style="max-width:728px">
+    <span class="block text-[10px] tracking-[0.18em] uppercase text-slate-400 mb-1.5">Advertisement</span>
+    <div class="flex justify-center overflow-hidden">
+      <script async src="https://js.wpadmngr.com/static/adManager.js" data-admpid="464498"></script>
+    </div>
+  </div>
+</div>
+
+<article class="max-w-4xl mx-auto px-4 sm:px-6 pb-10 text-slate-300 leading-relaxed">
+  <h2 class="text-3xl font-black text-white mb-4">How to Play Mafia Party Game: The Complete Guide to Roles, Night Phases, and Moderating Like a Pro</h2>
+  <p class="mb-4">Few party games create the same electric mix of suspicion, laughter, and dramatic betrayal as Mafia. If you have ever wondered how to play Mafia party game nights that your friends talk about for weeks, this guide walks you through everything: the classic mafia game roles, how a werewolf game moderator runs the table, and the strategies that separate memorable games from confusing ones.</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">What is the Mafia party game?</h3>
+  <p class="mb-4">Mafia — also known as Werewolf in its popular variant — is a social deduction game for 5 to 30+ players. The group is secretly divided into two teams: a small, hidden Mafia that knows each other, and the uninformed Village majority that must find and vote out the Mafia before the Mafia eliminates them. Nobody knows anyone else's secret role at the start, and that information gap is the entire game.</p>
+  <p class="mb-4">A typical game alternates between two phases. At night, everyone closes their eyes while the moderator wakes each special role in turn: the Mafia silently chooses a victim, the Doctor protects someone, and the Detective investigates a suspect. By day, everyone opens their eyes, learns who (if anyone) died overnight, and debates who among them is secretly Mafia. The day ends with a vote, the accused is eliminated, and the cycle repeats until one side wins.</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">Mafia game roles explained</h3>
+  <p class="mb-4">Understanding mafia game roles is the single biggest factor in a fair, fun game. Here are the roles used at most tables, from essential to advanced:</p>
+  <p class="mb-4"><strong class="text-white">Mafia (essential).</strong> The informed minority. Each night they silently agree on one player to eliminate. During the day they pretend to be ordinary villagers, deflecting suspicion and steering votes toward innocents. A well-played Mafia member is quiet when accused but loud when accusing others.</p>
+  <p class="mb-4"><strong class="text-white">Villager (essential).</strong> The uninformed majority with no night powers. Villagers win purely through daytime debate, reading body language, and voting. They are the backbone of the game — most players at the table will be villagers.</p>
+  <p class="mb-4"><strong class="text-white">Doctor (recommended for 7+ players).</strong> Each night the Doctor protects one player from the Mafia's attack. A smart Doctor protects quiet, valuable-seeming players — and never reveals themselves too early, because the Mafia will kill a known Doctor immediately.</p>
+  <p class="mb-4"><strong class="text-white">Detective (recommended for 9+ players).</strong> Each night the Detective learns one player's true role. The challenge is sharing that information during the day without painting a target on their own back. Experienced Detectives drop hints and let villagers connect the dots.</p>
+  <p class="mb-4"><strong class="text-white">Bodyguard (great for 11+ players).</strong> Each night the Bodyguard shields one player. If the Mafia attacks the guarded player, the Bodyguard dies instead. It is the game's most dramatic sacrifice, and a well-timed guard can completely flip the momentum.</p>
+  <p class="mb-4">For larger tables, many groups add their own twists — a Jester who wins by getting voted out, a Mayor whose vote counts double, or a Vigilante villager who can secretly eliminate one player per game. The golden rule for custom roles: every role should create interesting daytime conversation, not just nighttime math.</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">How many Mafia should there be?</h3>
+  <p class="mb-4">Balance matters more than most beginners realize. Too many Mafia and the village has no chance; too few and the game drags. The classic formula used at experienced tables is <strong class="text-white">floor(total players ÷ 3)</strong> Mafia members — so 7 players get 2 Mafia, 9 players get 3, and 12 players get 4. This ratio keeps tension high in both phases without making the Mafia feel hopeless or invincible.</p>
+  <p class="mb-4">Special roles follow a similar progression. Add a Doctor at 7 players, a Detective at 9, and a Bodyguard at 11. Each addition gives the village one more tool, which keeps the 1:3 ratio fair as the table grows. For very large games (15+), consider two Doctors, or let the Detective investigate twice per night.</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">The werewolf game moderator: running the night phase</h3>
+  <p class="mb-4">The moderator is the invisible hand of the game. A good werewolf game moderator keeps the night phase silent, orderly, and dramatic — while a sloppy one leaks information that ruins the deduction. Here is the exact sequence most experienced moderators follow:</p>
+  <p class="mb-4"><strong class="text-white">1. Put the village to sleep.</strong> "Everyone close your eyes and lower your heads. No talking, no peeking." Give it a few seconds of genuine silence — this is what makes the night feel real.</p>
+  <p class="mb-4"><strong class="text-white">2. Wake the Mafia first.</strong> "Mafia — open your eyes." The Mafia silently point at their target. The moderator nods to confirm, then: "Mafia — close your eyes." Waking the Mafia first is standard because every other night action is a response to their choice.</p>
+  <p class="mb-4"><strong class="text-white">3. Wake the Doctor.</strong> "Doctor — open your eyes. Point at the player you are protecting tonight." The moderator confirms and sends the Doctor back to sleep.</p>
+  <p class="mb-4"><strong class="text-white">4. Wake the Detective.</strong> "Detective — open your eyes. Point at the player you want to investigate." The moderator silently signals the answer — a thumbs-up for Mafia, thumbs-down for innocent — and puts the Detective back to sleep.</p>
+  <p class="mb-4"><strong class="text-white">5. Wake the Bodyguard</strong> (if in play), then: <strong class="text-white">6. Wake everyone.</strong> "Everyone open your eyes — it is morning." The moderator announces the night's result with theater: if the Doctor saved the target, describe a narrow escape; if someone died, let them give a dramatic farewell speech.</p>
+  <p class="mb-4">Moderator discipline is everything. Never rush the night, never comment on what you saw, and never let players peek — a single slipped glance can hand the village a free win. If you are moderating for the first time, use a guided prompt tool so you never forget the wake order or what to say.</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">Running the day phase: debate and voting</h3>
+  <p class="mb-4">The day phase is where Mafia becomes unforgettable. After the night's result is announced, open the floor for discussion. A timed debate — typically 5 minutes for small games, up to 10 for large ones — keeps energy high and prevents one loud player from dominating. When the timer ends, hold the vote: every living player points at their suspect simultaneously, and the player with the most votes is eliminated and reveals their role.</p>
+  <p class="mb-4">A few day-phase rules keep things fair: dead players may not speak or gesture (no ghost hints); accusations must be defended before the vote; and nobody may show their role card as proof — claims are just words, and Mafia members lie. The game ends when all Mafia are eliminated (village wins) or when the living Mafia equal or outnumber the living villagers (Mafia wins, since the vote can no longer stop them).</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">Common beginner mistakes</h3>
+  <p class="mb-4"><strong class="text-white">Revealing too early.</strong> New Detectives and Doctors announce themselves on day one and are killed that night. Power roles should survive at least two or three nights before claiming.</p>
+  <p class="mb-4"><strong class="text-white">Voting without reasoning.</strong> "I just feel it" votes waste eliminations. Good villagers explain their logic — who was quiet during the night result, who pushed a bad vote yesterday, whose story changed.</p>
+  <p class="mb-4"><strong class="text-white">Mafia killing obvious targets.</strong> New Mafia players always kill the loudest villager. Experienced Mafia kill the quiet observer who is clearly tracking patterns — the loud player is more useful alive as a distraction.</p>
+  <p class="mb-4"><strong class="text-white">Forgetting the count.</strong> Tables lose track of who is alive and how many Mafia might remain. Keep a visible alive/dead tracker — it sharpens every debate and makes the win condition obvious to everyone.</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">Why pass-and-play dealing beats cards and chits</h3>
+  <p class="mb-4">Traditional Mafia uses playing cards or paper chits for roles, but physical dealing has real problems at parties: someone always peeks, chits get lost under the sofa, and custom roles mean hand-writing twenty slips before the game starts. Pass-and-play dealing on a single phone solves all of it — each player taps to reveal their secret role, memorizes it, and hands the phone on. Nobody sees anyone else's card, setup takes thirty seconds, and the role mix is perfectly balanced every time.</p>
+  <p class="mb-4">It also removes the most awkward part of hosting: you no longer need to prepare anything. Open the dealer, enter the player count, tweak the roles if you like, and pass the phone. The guided night prompts mean even a first-time moderator runs a flawless night phase, and the alive/dead tracker plus discussion timer handle the bookkeeping that usually falls on whoever is hosting.</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">Mafia vs. Werewolf: what's the difference?</h3>
+  <p class="mb-4">New players often ask whether Mafia and Werewolf are different games. Mechanically, they are the same social deduction game with different costumes: the Mafia become Werewolves, the village stays the village, and the Detective is often called the Seer. The night/day structure, the voting, and the win conditions are identical. "Werewolf" editions tend to add more exotic roles (the Hunter who takes someone down when killed, the Witch with potions), while classic Mafia stays closer to the Doctor/Detective core. Everything in this guide applies to both — and any good role dealer should handle either theme.</p>
+
+  <h3 class="text-2xl font-black text-white mt-8 mb-3">Tips for an unforgettable game night</h3>
+  <p class="mb-4">Dim the lights for the night phase — atmosphere does half the moderator's work. Seat players in a circle so nobody can hide behind anyone. For the first game of the evening, keep it to the core roles so everyone learns the flow; add the Bodyguard and custom roles in game two. And establish one house rule up front: what happens at the table stays at the table — no holding grudges over a well-played betrayal. The best Mafia nights end with the eliminated players laughing the loudest, already plotting their revenge in the next round.</p>
+
+  <h2 class="text-2xl font-black text-white mt-10 mb-4">Frequently Asked Questions</h2>
+
+  <details class="faq card-table rounded-xl p-4 mb-3">
+    <summary class="font-bold text-white">How many players do you need to play Mafia?</summary>
+    <p class="mt-2 text-sm">Mafia works best with 7 to 15 players, but it is playable with as few as 5 and scales to 30 or more. With 5–6 players use 1–2 Mafia and no special roles; add a Doctor at 7 players, a Detective at 9, and a Bodyguard at 11. The classic balance is floor(players ÷ 3) Mafia members.</p>
+  </details>
+  <details class="faq card-table rounded-xl p-4 mb-3">
+    <summary class="font-bold text-white">What is the difference between Mafia and Werewolf?</summary>
+    <p class="mt-2 text-sm">They are the same social deduction game with different themes. The Mafia become Werewolves, the Detective is often called the Seer, and the night/day structure, voting, and win conditions are identical. Werewolf editions sometimes add extra roles like the Hunter or Witch, but the core gameplay is the same.</p>
+  </details>
+  <details class="faq card-table rounded-xl p-4 mb-3">
+    <summary class="font-bold text-white">Who wins when the Mafia equal the villagers?</summary>
+    <p class="mt-2 text-sm">The Mafia wins. When the number of living Mafia equals or exceeds the number of living non-Mafia players, the village can no longer vote them out — the Mafia controls the vote. The village wins only when every Mafia member has been eliminated.</p>
+  </details>
+  <details class="faq card-table rounded-xl p-4 mb-3">
+    <summary class="font-bold text-white">Can the Doctor save themselves in Mafia?</summary>
+    <p class="mt-2 text-sm">In most house rules, yes — the Doctor may protect themselves, but not on consecutive nights. Self-saving every night makes the Doctor nearly unkillable, so the "no consecutive self-save" rule keeps the game balanced. Agree on the rule before the game starts.</p>
+  </details>
+  <details class="faq card-table rounded-xl p-4 mb-3">
+    <summary class="font-bold text-white">What does the Detective do at night?</summary>
+    <p class="mt-2 text-sm">Each night the Detective secretly investigates one player and learns their true role — the moderator signals it silently, usually with a thumbs-up (Mafia) or thumbs-down (innocent). The Detective's challenge is sharing this information during the day without revealing themselves and becoming the Mafia's next target.</p>
+  </details>
+  <details class="faq card-table rounded-xl p-4 mb-3">
+    <summary class="font-bold text-white">How do you moderate Mafia for the first time?</summary>
+    <p class="mt-2 text-sm">Follow a fixed script: put everyone to sleep, wake the Mafia first (they choose a target), then the Doctor (chooses a save), then the Detective (investigates one player), then wake everyone and announce the result. Never rush, never comment on what you saw, and keep dead players silent. A guided prompt tool handles the exact wording so you can focus on the drama.</p>
+  </details>
+</article>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How many players do you need to play Mafia?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Mafia works best with 7 to 15 players, but it is playable with as few as 5 and scales to 30 or more. With 5-6 players use 1-2 Mafia and no special roles; add a Doctor at 7 players, a Detective at 9, and a Bodyguard at 11. The classic balance is floor(players / 3) Mafia members." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between Mafia and Werewolf?",
+      "acceptedAnswer": { "@type": "Answer", "text": "They are the same social deduction game with different themes. The Mafia become Werewolves, the Detective is often called the Seer, and the night/day structure, voting, and win conditions are identical. Werewolf editions sometimes add extra roles like the Hunter or Witch, but the core gameplay is the same." }
+    },
+    {
+      "@type": "Question",
+      "name": "Who wins when the Mafia equal the villagers?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The Mafia wins. When the number of living Mafia equals or exceeds the number of living non-Mafia players, the village can no longer vote them out. The village wins only when every Mafia member has been eliminated." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can the Doctor save themselves in Mafia?",
+      "acceptedAnswer": { "@type": "Answer", "text": "In most house rules, yes - the Doctor may protect themselves, but not on consecutive nights. Self-saving every night makes the Doctor nearly unkillable, so the 'no consecutive self-save' rule keeps the game balanced. Agree on the rule before the game starts." }
+    },
+    {
+      "@type": "Question",
+      "name": "What does the Detective do at night?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Each night the Detective secretly investigates one player and learns their true role - the moderator signals it silently, usually with a thumbs-up (Mafia) or thumbs-down (innocent). The Detective's challenge is sharing this information during the day without revealing themselves." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do you moderate Mafia for the first time?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Follow a fixed script: put everyone to sleep, wake the Mafia first (they choose a target), then the Doctor (chooses a save), then the Detective (investigates one player), then wake everyone and announce the result. Never rush, never comment on what you saw, and keep dead players silent." }
+    }
+  ]
+}
+</script>
+
+<script id="v3-mafiadeal-party-role-dealer-lib">
+/* MafiaDeal pure logic — pass-and-play secret role dealer for Mafia/Werewolf.
+ * Pure functions only: no document/window access, no DOM, no network.
+ * Roles, seeded shuffling, night-phase ordering, night resolution, win checks.
+ */
+var MafiaDealLogic = (function () {
+  'use strict';
+
+  /* ---- role catalog ----
+   * nightOrder: the order a role wakes during the night phase (null = never wakes).
+   * prompt: the guided line the moderator reads aloud for that role.
+   */
+  var ROLES = [
+    { key: 'mafia', name: 'Mafia', team: 'mafia', nightOrder: 1,
+      desc: 'You are secretly working against the village. Eliminate villagers each night without being caught.',
+      prompt: 'Everyone close your eyes. Mafia — open your eyes. Silently point at ONE player to eliminate tonight. Done? Mafia, close your eyes.' },
+    { key: 'doctor', name: 'Doctor', team: 'village', nightOrder: 2,
+      desc: 'Each night you may save one player (even yourself) from the Mafia\'s attack.',
+      prompt: 'Doctor — open your eyes. Silently point at ONE player to protect tonight. Doctor, close your eyes.' },
+    { key: 'detective', name: 'Detective', team: 'village', nightOrder: 3,
+      desc: 'Each night you may secretly learn one player\'s true role.',
+      prompt: 'Detective — open your eyes. Silently point at ONE player; the moderator will show you their role. Detective, close your eyes.' },
+    { key: 'bodyguard', name: 'Bodyguard', team: 'village', nightOrder: 4,
+      desc: 'Each night you may guard one player. If the Mafia strikes your guarded player, you die in their place.',
+      prompt: 'Bodyguard — open your eyes. Silently point at ONE player to guard with your life tonight. Bodyguard, close your eyes.' },
+    { key: 'villager', name: 'Villager', team: 'village', nightOrder: null,
+      desc: 'You have no night powers. Stay sharp during the day, debate well, and vote out the Mafia.',
+      prompt: null }
+  ];
+
+  function roleDef(key) {
+    for (var i = 0; i < ROLES.length; i++) {
+      if (ROLES[i].key === key) return ROLES[i];
+    }
+    return null;
+  }
+
+  function roleKeys() {
+    return ROLES.map(function (r) { return r.key; });
+  }
+
+  /* ---- setup defaults ----
+   * Classic party balance: mafia = floor(n/3), at least 1.
+   * Special roles unlock as the table grows so big games stay interesting.
+   */
+  function defaultCounts(n) {
+    n = Math.max(5, Math.floor(Number(n) || 5));
+    var counts = { mafia: 0, doctor: 0, detective: 0, bodyguard: 0, villager: 0 };
+    counts.mafia = Math.max(1, Math.floor(n / 3));
+    if (n >= 7) counts.doctor = 1;
+    if (n >= 9) counts.detective = 1;
+    if (n >= 11) counts.bodyguard = 1;
+    var used = counts.mafia + counts.doctor + counts.detective + counts.bodyguard;
+    counts.villager = n - used;
+    return counts;
+  }
+
+  function countTotal(counts) {
+    var t = 0;
+    roleKeys().forEach(function (k) { t += Math.max(0, Math.floor(Number(counts[k]) || 0)); });
+    return t;
+  }
+
+  // Returns { ok, reason? } — the role counts must sum exactly to the player count.
+  function validateCounts(counts, playerCount) {
+    playerCount = Math.floor(Number(playerCount) || 0);
+    if (playerCount < 5) return { ok: false, reason: 'need-players' };
+    var total = countTotal(counts);
+    if (total !== playerCount) return { ok: false, reason: 'sum-mismatch', total: total };
+    if (Math.max(0, Math.floor(Number(counts.mafia) || 0)) < 1) {
+      return { ok: false, reason: 'no-mafia' };
+    }
+    return { ok: true };
+  }
+
+  function buildDeck(counts) {
+    var deck = [];
+    roleKeys().forEach(function (k) {
+      var c = Math.max(0, Math.floor(Number(counts[k]) || 0));
+      for (var i = 0; i < c; i++) deck.push(k);
+    });
+    return deck;
+  }
+
+  /* ---- seeded RNG (mulberry32) ---- */
+  function mulberry32(seed) {
+    var a = (Number(seed) >>> 0) || 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffle(arr, randFn) {
+    var rand = (typeof randFn === 'function') ? randFn : Math.random;
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(rand() * (i + 1));
+      var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  // names: array of player names (must equal the counts total).
+  // seed: optional integer for reproducible dealing (omit for true randomness).
+  // Returns { ok, assignments: [{name, role}] }.
+  function dealRoles(names, counts, seed) {
+    var list = (names || []).map(function (n) { return String(n); });
+    var v = validateCounts(counts, list.length);
+    if (!v.ok) return { ok: false, reason: v.reason, total: v.total };
+    var deck = shuffle(buildDeck(counts), seed === undefined ? Math.random : mulberry32(seed));
+    var out = [];
+    for (var i = 0; i < list.length; i++) out.push({ name: list[i], role: deck[i] });
+    return { ok: true, assignments: out };
+  }
+
+  /* ---- night phase ----
+   * Returns the guided moderator steps for the roles actually in play,
+   * always: mafia wakes first, then doctor, detective, bodyguard.
+   */
+  function nightPhaseSteps(roleKeysInPlay) {
+    var seen = {};
+    (roleKeysInPlay || []).forEach(function (k) { seen[k] = true; });
+    return ROLES
+      .filter(function (r) { return r.nightOrder !== null && seen[r.key]; })
+      .sort(function (a, b) { return a.nightOrder - b.nightOrder; })
+      .map(function (r) { return { role: r.key, name: r.name, prompt: r.prompt }; });
+  }
+
+  // Full moderator script: intro step, one step per night role, closing step.
+  function nightScript(roleKeysInPlay) {
+    var steps = [{ role: 'all', name: 'Night falls',
+      prompt: 'Everyone close your eyes and lower your heads. No peeking, no talking. The village sleeps...' }];
+    steps = steps.concat(nightPhaseSteps(roleKeysInPlay));
+    steps.push({ role: 'dawn', name: 'Dawn',
+      prompt: 'Everyone open your eyes — it is morning. The moderator announces what happened last night.' });
+    return steps;
+  }
+
+  /* ---- night resolution ----
+   * choices: { mafiaTarget, doctorSave, bodyguardGuard } — player names or null.
+   * players: [{ name, role, alive }].
+   * Priority: no target → nobody dies; doctor save blocks the kill;
+   * otherwise a guarded target costs the bodyguard's life instead.
+   */
+  function resolveNight(choices, players) {
+    choices = choices || {};
+    players = players || [];
+    var target = choices.mafiaTarget || null;
+    if (!target) return { killed: null, savedBy: null, detail: 'no-attack' };
+    if (choices.doctorSave && choices.doctorSave === target) {
+      return { killed: null, savedBy: 'doctor', detail: 'doctor-save' };
+    }
+    var guard = choices.bodyguardGuard || null;
+    var bodyguard = null;
+    for (var i = 0; i < players.length; i++) {
+      if (players[i].role === 'bodyguard' && players[i].alive) { bodyguard = players[i].name; break; }
+    }
+    if (bodyguard && guard && guard === target && bodyguard !== target) {
+      return { killed: bodyguard, savedBy: 'bodyguard', detail: 'bodyguard-sacrifice' };
+    }
+    return { killed: target, savedBy: null, detail: 'mafia-kill' };
+  }
+
+  /* ---- win check ----
+   * players: [{ name, role, alive }].
+   * Villagers (everyone not Mafia) win when no Mafia is alive.
+   * Mafia wins when the living Mafia equal or outnumber the living non-Mafia.
+   */
+  function checkWin(players) {
+    players = players || [];
+    var mafiaAlive = 0, othersAlive = 0;
+    players.forEach(function (p) {
+      if (!p.alive) return;
+      if (p.role === 'mafia') mafiaAlive++;
+      else othersAlive++;
+    });
+    if (mafiaAlive === 0) return { winner: 'villagers', mafiaAlive: 0, othersAlive: othersAlive, reason: 'all-mafia-eliminated' };
+    if (mafiaAlive >= othersAlive) return { winner: 'mafia', mafiaAlive: mafiaAlive, othersAlive: othersAlive, reason: 'mafia-parity' };
+    return { winner: null, mafiaAlive: mafiaAlive, othersAlive: othersAlive, reason: 'ongoing' };
+  }
+
+  function formatClock(totalSeconds) {
+    totalSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    var m = Math.floor(totalSeconds / 60);
+    var s = totalSeconds % 60;
+    return (m < 10 ? '0' + m : '' + m) + ':' + (s < 10 ? '0' + s : '' + s);
+  }
+
+  return {
+    ROLES: ROLES,
+    roleDef: roleDef,
+    roleKeys: roleKeys,
+    defaultCounts: defaultCounts,
+    countTotal: countTotal,
+    validateCounts: validateCounts,
+    buildDeck: buildDeck,
+    mulberry32: mulberry32,
+    shuffle: shuffle,
+    dealRoles: dealRoles,
+    nightPhaseSteps: nightPhaseSteps,
+    nightScript: nightScript,
+    resolveNight: resolveNight,
+    checkWin: checkWin,
+    formatClock: formatClock
+  };
+})();
+
+</script>
+
+<script>
+/* MafiaDeal UI wiring — separate from the pure logic lib above. */
+(function () {
+  'use strict';
+  var L = MafiaDealLogic;
+  var $ = function (id) { return document.getElementById(id); };
+
+  var STAGES = ['setup', 'deal', 'night', 'tracker', 'timer'];
+  var game = null;   // { players: [{name, role, alive}], nightRound }
+  var dealIdx = 0;
+  var nightIdx = 0;
+  var nightSteps = [];
+
+  function showStage(name) {
+    STAGES.forEach(function (s) {
+      var sec = $('md-' + s + '-section');
+      if (sec) sec.classList.toggle('hidden', s !== name);
+      var dot = $('stage-' + s);
+      if (dot) {
+        var active = s === name;
+        dot.style.background = active ? '#ef4444' : 'rgba(234,179,8,.10)';
+        dot.style.color = active ? '#fff' : '#eab308';
+      }
+    });
+  }
+
+  /* ---------- setup ---------- */
+  function readCounts() {
+    return {
+      mafia: parseInt($('md-mafia-count').value, 10) || 0,
+      doctor: parseInt($('md-doctor-count').value, 10) || 0,
+      detective: parseInt($('md-detective-count').value, 10) || 0,
+      bodyguard: parseInt($('md-bodyguard-count').value, 10) || 0,
+      villager: parseInt($('md-villager-count').value, 10) || 0
+    };
+  }
+
+  function refreshVillagers() {
+    var n = Math.min(30, Math.max(5, parseInt($('md-player-count').value, 10) || 5));
+    $('md-player-count').value = n;
+    var c = readCounts();
+    var used = c.mafia + c.doctor + c.detective + c.bodyguard;
+    var v = Math.max(0, n - used);
+    $('md-villager-count').value = v;
+    var w = $('md-count-warning');
+    if (used > n) { w.textContent = 'Role counts exceed the player count — reduce something.'; }
+    else { w.textContent = ''; }
+  }
+
+  function applyDefaults() {
+    var n = Math.min(30, Math.max(5, parseInt($('md-player-count').value, 10) || 5));
+    $('md-player-count').value = n;
+    var d = L.defaultCounts(n);
+    $('md-mafia-count').value = d.mafia;
+    $('md-doctor-count').value = d.doctor;
+    $('md-detective-count').value = d.detective;
+    $('md-bodyguard-count').value = d.bodyguard;
+    refreshVillagers();
+  }
+
+  ['md-player-count', 'md-mafia-count', 'md-doctor-count', 'md-detective-count', 'md-bodyguard-count']
+    .forEach(function (id) { $(id).addEventListener('input', refreshVillagers); });
+  $('md-reset-counts').addEventListener('click', applyDefaults);
+
+  function playerNames(n) {
+    var raw = $('md-player-names').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    var names = [];
+    for (var i = 0; i < n; i++) names.push(raw[i] || ('Player ' + (i + 1)));
+    return names;
+  }
+
+  /* ---------- deal (pass and play) ---------- */
+  function roleChip(role) {
+    var d = L.roleDef(role);
+    var color = role === 'mafia' ? '#ef4444' : (role === 'villager' ? '#94a3b8' : '#eab308');
+    var icon = role === 'mafia' ? '&spades;' : role === 'doctor' ? '&#10010;' : role === 'detective' ? '&#128065;' : role === 'bodyguard' ? '&#128737;' : '&#9823;';
+    return '<div class="rounded-2xl p-8 text-center bg-black/50 border-2" style="border-color:' + color + ';">' +
+      '<div class="text-6xl mb-3" style="color:' + color + ';">' + icon + '</div>' +
+      '<p class="text-xs font-bold uppercase tracking-widest mb-1" style="color:' + color + ';">' + (d.team === 'mafia' ? 'Mafia team' : 'Village team') + '</p>' +
+      '<p class="text-3xl font-black mb-3" style="color:' + color + ';">' + d.name + '</p>' +
+      '<p class="text-sm text-slate-300 leading-relaxed">' + d.desc + '</p></div>';
+  }
+
+  function renderDealHidden() {
+    $('md-deal-area').innerHTML =
+      '<div class="rounded-2xl p-10 text-center role-hidden-inner border border-[rgba(234,179,8,.3)]">' +
+      '<p class="text-5xl mb-3">&#127963;</p>' +
+      '<p class="font-black text-lg">Role hidden</p>' +
+      '<p class="text-sm text-slate-400 mt-1">Make sure nobody else is looking.</p></div>';
+    $('md-reveal-btn').classList.remove('hidden');
+    $('md-hide-btn').classList.add('hidden');
+  }
+
+  function startDeal() {
+    var n = parseInt($('md-player-count').value, 10) || 5;
+    var counts = readCounts();
+    var v = L.validateCounts(counts, n);
+    if (!v.ok) {
+      $('md-count-warning').textContent = v.reason === 'no-mafia'
+        ? 'You need at least 1 Mafia.' : 'Role counts must add up to the player count.';
+      return;
+    }
+    var r = L.dealRoles(playerNames(n), counts);
+    if (!r.ok) { $('md-count-warning').textContent = 'Could not deal roles — check the counts.'; return; }
+    game = { players: r.assignments.map(function (a) { return { name: a.name, role: a.role, alive: true }; }), nightRound: 1 };
+    dealIdx = 0;
+    showDealPlayer();
+    showStage('deal');
+  }
+
+  function showDealPlayer() {
+    var p = game.players[dealIdx];
+    $('md-deal-name').textContent = p.name;
+    $('md-deal-progress').textContent = 'Player ' + (dealIdx + 1) + ' of ' + game.players.length;
+    renderDealHidden();
+  }
+
+  $('md-reveal-btn').addEventListener('click', function () {
+    var p = game.players[dealIdx];
+    $('md-deal-area').innerHTML = roleChip(p.role);
+    $('md-reveal-btn').classList.add('hidden');
+    var hb = $('md-hide-btn');
+    hb.classList.remove('hidden');
+    hb.innerHTML = dealIdx === game.players.length - 1 ? 'I memorized it — start the game &rarr;' : 'I memorized it — next player &rarr;';
+  });
+
+  $('md-hide-btn').addEventListener('click', function () {
+    dealIdx++;
+    if (dealIdx >= game.players.length) {
+      buildNight();
+      showStage('night');
+    } else {
+      showDealPlayer();
+    }
+  });
+
+  /* ---------- night phase ---------- */
+  function buildNight() {
+    var rolesInPlay = game.players.filter(function (p) { return p.alive; }).map(function (p) { return p.role; });
+    nightSteps = L.nightScript(rolesInPlay);
+    nightIdx = 0;
+    $('md-night-round').textContent = game.nightRound;
+    renderNightStep();
+    fillNightSelects();
+    $('md-night-actions').classList.add('hidden');
+    $('md-night-result').textContent = '';
+  }
+
+  function fillNightSelects() {
+    var alive = game.players.filter(function (p) { return p.alive; });
+    var opts = '<option value="">— none —</option>' + alive.map(function (p) {
+      return '<option value="' + p.name.replace(/"/g, '&quot;') + '">' + p.name.replace(/</g, '&lt;') + '</option>';
+    }).join('');
+    $('md-night-target').innerHTML = opts;
+    $('md-night-doctor').innerHTML = opts;
+    $('md-night-guard').innerHTML = opts;
+  }
+
+  function renderNightStep() {
+    var s = nightSteps[nightIdx];
+    $('md-night-step').textContent = s.name;
+    $('md-night-prompt').textContent = s.prompt;
+    $('md-night-counter').textContent = 'Step ' + (nightIdx + 1) + ' of ' + nightSteps.length;
+    $('md-night-next-btn').textContent = nightIdx === nightSteps.length - 1 ? 'Finish night &rarr;' : 'Next \u2192';
+  }
+
+  $('md-night-next-btn').addEventListener('click', function () {
+    if (nightIdx < nightSteps.length - 1) {
+      nightIdx++;
+      renderNightStep();
+    } else {
+      $('md-night-actions').classList.remove('hidden');
+      $('md-night-actions').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+  $('md-night-back-btn').addEventListener('click', function () {
+    if (nightIdx > 0) { nightIdx--; renderNightStep(); }
+  });
+
+  $('md-resolve-night').addEventListener('click', function () {
+    var res = L.resolveNight({
+      mafiaTarget: $('md-night-target').value || null,
+      doctorSave: $('md-night-doctor').value || null,
+      bodyguardGuard: $('md-night-guard').value || null
+    }, game.players);
+    var out = $('md-night-result');
+    if (res.detail === 'no-attack') {
+      out.textContent = '\u{1F319} A quiet night — nobody was attacked.';
+      out.style.color = '#94a3b8';
+    } else if (res.detail === 'doctor-save') {
+      out.textContent = '\u{1F489} The Doctor saved the target! Nobody died tonight.';
+      out.style.color = '#4ade80';
+    } else if (res.detail === 'bodyguard-sacrifice') {
+      markDead(res.killed);
+      out.textContent = '\u{1F6E1}\uFE0F The Bodyguard ' + res.killed + ' took the bullet and died protecting the target!';
+      out.style.color = '#a78bfa';
+    } else {
+      markDead(res.killed);
+      out.textContent = '\u{1F480} ' + res.killed + ' was found eliminated in the morning!';
+      out.style.color = '#ef4444';
+    }
+    game.nightRound++;
+    renderTracker();
+  });
+
+  /* ---------- tracker ---------- */
+  function markDead(name) {
+    game.players.forEach(function (p) { if (p.name === name) p.alive = false; });
+  }
+
+  function renderTracker() {
+    var list = $('md-tracker-list');
+    list.innerHTML = game.players.map(function (p, i) {
+      var d = L.roleDef(p.role);
+      var dot = p.alive ? '#4ade80' : '#52525b';
+      var opacity = p.alive ? '1' : '.45';
+      return '<button data-i="' + i + '" class="text-left rounded-xl px-4 py-3 bg-black/40 border border-[rgba(234,179,8,.25)] hover:border-[#eab308]" style="opacity:' + opacity + ';">' +
+        '<span class="inline-block w-2.5 h-2.5 rounded-full mr-2" style="background:' + dot + ';"></span>' +
+        '<span class="font-bold">' + p.name.replace(/</g, '&lt;') + '</span>' +
+        '<span class="block text-xs text-slate-400 mt-0.5">' + d.name + ' · ' + (p.alive ? 'alive — tap to kill' : 'dead — tap to revive') + '</span></button>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('button'), function (b) {
+      b.addEventListener('click', function () {
+        var p = game.players[parseInt(b.getAttribute('data-i'), 10)];
+        p.alive = !p.alive;
+        renderTracker();
+      });
+    });
+    var w = L.checkWin(game.players);
+    $('md-count-mafia').textContent = w.mafiaAlive;
+    $('md-count-village').textContent = w.othersAlive;
+    $('md-count-dead').textContent = game.players.filter(function (p) { return !p.alive; }).length;
+    var banner = $('md-win-banner');
+    if (w.winner) {
+      banner.classList.remove('hidden');
+      if (w.winner === 'villagers') {
+        banner.textContent = '\u{1F389} Villagers win! Every last Mafia has been eliminated.';
+        banner.style.background = 'rgba(74,222,128,.12)'; banner.style.border = '1px solid #4ade80'; banner.style.color = '#4ade80';
+      } else {
+        banner.textContent = '\u{1F47F} Mafia wins! They now equal or outnumber the village.';
+        banner.style.background = 'rgba(239,68,68,.12)'; banner.style.border = '1px solid #ef4444'; banner.style.color = '#ef4444';
+      }
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  /* ---------- discussion timer (Web Audio end chime) ---------- */
+  var timerId = null, timerLeft = 5 * 60;
+  function paintTimer() {
+    $('md-timer-display').textContent = L.formatClock(timerLeft);
+  }
+  function chime() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      var ctx = new AC();
+      var notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach(function (f, i) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        var t = ctx.currentTime + i * 0.22;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t); o.stop(t + 0.4);
+      });
+    } catch (e) { /* audio unavailable — timer still works */ }
+  }
+  function timerDone() {
+    clearInterval(timerId); timerId = null;
+    $('md-timer-display').classList.add('timer-flash');
+    chime();
+    $('md-timer-start').innerHTML = '&#9654; Start';
+  }
+  $('md-timer-start').addEventListener('click', function () {
+    if (timerId) return;
+    $('md-timer-display').classList.remove('timer-flash');
+    timerId = setInterval(function () {
+      timerLeft--;
+      paintTimer();
+      if (timerLeft <= 0) timerDone();
+    }, 1000);
+    $('md-timer-start').innerHTML = '&#9654; Running…';
+  });
+  $('md-timer-stop').addEventListener('click', function () {
+    if (timerId) { clearInterval(timerId); timerId = null; $('md-timer-start').innerHTML = '&#9654; Resume'; }
+  });
+  $('md-timer-reset').addEventListener('click', function () {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    timerLeft = Math.max(1, parseInt($('md-timer-min').value, 10) || 5) * 60;
+    $('md-timer-display').classList.remove('timer-flash');
+    $('md-timer-start').innerHTML = '&#9654; Start';
+    paintTimer();
+  });
+  $('md-timer-min').addEventListener('input', function () {
+    if (!timerId) { timerLeft = Math.max(1, parseInt($('md-timer-min').value, 10) || 5) * 60; paintTimer(); }
+  });
+
+  /* ---------- nav ---------- */
+  $('md-start-game').addEventListener('click', startDeal);
+  function resetAll() { location.reload(); }
+  $('md-new-game').addEventListener('click', resetAll);
+  $('md-new-game-2').addEventListener('click', resetAll);
+  $('md-goto-night').addEventListener('click', function () {
+    if (!game) return;
+    buildNight();
+    showStage('night');
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-stage]'), function (b) {
+    b.addEventListener('click', function () {
+      var s = b.getAttribute('data-stage');
+      if ((s === 'deal' || s === 'night' || s === 'tracker') && !game) {
+        showStage('setup');
+        return;
+      }
+      if (s === 'night' && game) buildNight();
+      if (s === 'tracker' && game) renderTracker();
+      showStage(s);
+    });
+  });
+
+  applyDefaults();
+  showStage('setup');
+  paintTimer();
+})();
+</script>
+</body>
+</html>
